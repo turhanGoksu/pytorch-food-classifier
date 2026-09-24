@@ -17,3 +17,6 @@ venv/
 
 # OS
 .DS_Store
+
+# Generated Kaggle notebook (copies the source files; regenerate instead)
+kaggle_train.ipynb
