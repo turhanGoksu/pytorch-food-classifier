@@ -28,7 +28,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, default=Path("outputs"))
     parser.add_argument("--epochs", type=int, default=15)
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--lr", type=float, default=1e-3,
+                        help="Learning rate of the new classification head.")
+    parser.add_argument("--backbone-lr", type=float, default=1e-4,
+                        help="Learning rate of unfrozen backbone stages.")
     parser.add_argument("--weight-decay", type=float, default=1e-2)
     parser.add_argument("--num-workers", type=int, default=2)
     parser.add_argument("--seed", type=int, default=42)
@@ -52,7 +55,8 @@ def main() -> None:
     model = build_model(len(class_names), tuple(args.trainable_layers))
     model = model.to(device)  # Move weights before creating the optimizer.
     criterion = nn.CrossEntropyLoss()
-    optimizer = build_optimizer(model, lr=args.lr,
+    optimizer = build_optimizer(model, head_lr=args.lr,
+                                backbone_lr=args.backbone_lr,
                                 weight_decay=args.weight_decay)
 
     print(f"device={device} classes={len(class_names)} "

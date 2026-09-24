@@ -7,16 +7,27 @@ from torch.utils.data import DataLoader
 
 
 def build_optimizer(
-    model: nn.Module, lr: float = 1e-3, weight_decay: float = 1e-2
+    model: nn.Module,
+    head_lr: float = 1e-3,
+    backbone_lr: float = 1e-4,
+    weight_decay: float = 1e-2,
 ) -> torch.optim.Optimizer:
-    """Create AdamW over the trainable parameters only.
+    """Create AdamW with one parameter group per learning rate.
 
-    Frozen parameters (requires_grad=False) are left out, so the optimizer
-    keeps no state for them and the intent is explicit.
+    The new head starts from random weights and needs large steps. Unfrozen
+    backbone stages are already pretrained, so large steps would destroy
+    their features; they get a smaller learning rate. Frozen parameters
+    (requires_grad=False) are left out entirely.
     """
-    trainable_params = [p for p in model.parameters() if p.requires_grad]
-    return torch.optim.AdamW(trainable_params, lr=lr,
-                             weight_decay=weight_decay)
+    head_params = [p for p in model.fc.parameters() if p.requires_grad]
+    head_ids = {id(p) for p in head_params}
+    backbone_params = [p for p in model.parameters()
+                       if p.requires_grad and id(p) not in head_ids]
+
+    param_groups = [{"params": head_params, "lr": head_lr}]
+    if backbone_params:  # Empty when the whole backbone is frozen.
+        param_groups.append({"params": backbone_params, "lr": backbone_lr})
+    return torch.optim.AdamW(param_groups, weight_decay=weight_decay)
 
 
 def get_device() -> torch.device:
