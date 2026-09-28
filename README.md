@@ -16,18 +16,19 @@ what the higher-level tools had been doing on my behalf.
 ## Results
 
 Trained on a Kaggle T4 GPU. The full run, with logs and curves, is in the
-[Kaggle notebook](https://www.kaggle.com/code/turhangksu/pytorch-food-classifier). Validation set: 199 images, a stratified 20% of
-the data. 25 epochs, seed 42, batch size 32. The checkpoint is the epoch with
-the lowest validation loss, and accuracy is reported at that epoch.
+[Kaggle notebook](https://www.kaggle.com/code/turhangksu/pytorch-food-classifier).
+Validation set: 199 images, a stratified 20% of the data. 25 epochs, seed 42,
+batch size 32. The checkpoint is the epoch with the lowest validation loss,
+and accuracy is reported at that epoch.
 
 | Setup | Trainable params | Best val loss | Val accuracy | Notes |
 |---|---:|---:|---:|---|
-| Frozen backbone, new head only | 24,111 | 1.191 | 65.8% | Still slowly improving at epoch 25 |
+| Frozen backbone, new head only | 24,111 | 1.191 | 65.8% | Val loss still falling slowly at the end |
 | `layer4` unfrozen, one learning rate (1e-3) | 8.4M | 0.846 | 75.4% | Unstable after epoch 14 (local MPS run) |
 | `layer4` unfrozen, head 1e-3 and `layer4` 1e-4 | 8.4M | **0.716** | **76.4%** | Smooth, default recommendation |
 
-Local runs on Apple Silicon (MPS) with the same seed landed within about one
-point of these numbers. With about 17 training images per class, the gap
+Local runs on Apple Silicon (MPS) with the same seed landed within about two
+points of these numbers. With about 17 training images per class, the gap
 between training accuracy (100%) and validation accuracy (about 76%) shows
 that the model memorizes the training set. More data or stronger
 augmentation would help more than more epochs.
@@ -85,7 +86,8 @@ weights instead of one.
 
 ## What I learned about PyTorch internals
 
-Each point below was checked with a small experiment in this repository.
+Each point below was checked with a small experiment while building this
+project.
 
 **`requires_grad` is a per-tensor switch, and order matters when freezing.**
 Autograd only records operations on tensors with `requires_grad=True`, and
@@ -127,8 +129,8 @@ independent switches, and validation needs both.
 **Freezing vs fine-tuning is a trade-off, and the learning rate decides it.**
 Training only the head (24K parameters) is safe on 789 images but limited by
 ImageNet features. Unfreezing `layer4` (8.4M parameters) gains about 10
-points of accuracy, but only with a 10x smaller learning rate for the pretrained
-layers. With a single rate of 1e-3, even the training loss started rising
+points of accuracy, but only with a 10x smaller learning rate for the
+pretrained layers. With a single rate of 1e-3, even the training loss started rising
 after epoch 14.
 
 **A `state_dict` must include buffers, not just trained weights.** Saving
@@ -154,8 +156,8 @@ through stdin crashes the workers.
 The dataset is not included in this repository. It is a folder of JPEGs,
 one sub-folder per dish:
 
-- 48 folders and 988 images, all RGB. 848 images are 256x256, and the rest
-  come in 56 different sizes. Everything is resized to 224x224.
+- 48 folders and 988 images, all RGB. 848 images are 256x256, and the other
+  140 come in 55 different sizes. Everything is resized to 224x224.
 - The `mucver` and `kabak_mucver` folders contain the same dish. The code
   merges them through a class alias (`CLASS_ALIASES` in
   [`src/dataset.py`](src/dataset.py)) without touching the files, which
@@ -163,7 +165,7 @@ one sub-folder per dish:
   confidence between two labels for identical images.
 - The stratified 80/20 split gives 789 training and 199 validation images.
 - [`scripts/check_data.py`](scripts/check_data.py) decodes every image and
-  reports empty folders before training.
+  reports unreadable images and empty folders before training.
 
 ## Project structure
 
@@ -200,9 +202,10 @@ Outputs go to `outputs/` by default (`--output-dir` changes it):
 `best.pt`, `history.json`, and `curves.png`. The script picks CUDA, then
 Apple MPS, then CPU.
 
-On Kaggle, see the [training notebook](https://www.kaggle.com/code/turhangksu/pytorch-food-classifier). It writes the project
-files into the notebook, finds the dataset under `/kaggle/input/`
-automatically, and trains both setups. For a manual run, point `--data-dir`
+On Kaggle, see the
+[training notebook](https://www.kaggle.com/code/turhangksu/pytorch-food-classifier).
+It writes the project files into the notebook, finds the dataset under
+`/kaggle/input/` automatically, and trains both setups. For a manual run, point `--data-dir`
 at the dataset under `/kaggle/input/` and `--output-dir` at
 `/kaggle/working/`. Enable internet access so the ImageNet weights can be
 downloaded.
